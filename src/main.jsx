@@ -98,6 +98,8 @@ const linkToPage = label => ({
 const serviceToPage = { 'Tour trọn gói':'tour-trong-nuoc', 'Vé máy bay':'ve-may-bay', 'Khách sạn':'khach-san', 'Vé vui chơi':'ve-vui-choi', 'Visa du lịch':'dich-vu-visa', 'eSIM quốc tế':'esim-quoc-te', 'Combo du lịch':'combo-tiet-kiem', 'Tour trekking':'tour-trekking' };
 
 const formatPrice = value => new Intl.NumberFormat('vi-VN').format(value) + 'đ';
+const getTourDates = tour => tour.departureDates || [0,7,14].map(offset=>{const [day,month]=tour.date.split('/').map(Number);const date=new Date(2026,month-1,day+offset);return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}`});
+const getTransport = tour => tour.transport || ([7,10].includes(tour.id) ? 'Xe du lịch' : 'Máy bay');
 
 function App() {
   const [page, setPage] = useState(() => new URLSearchParams(window.location.search).get('page') || 'home');
@@ -117,6 +119,7 @@ function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [detail, setDetail] = useState(null);
   const [checkout, setCheckout] = useState(false);
+  const [consultOpen, setConsultOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [activeFilter, setActiveFilter] = useState('Tất cả');
 
@@ -247,12 +250,7 @@ function App() {
             <div className="service-tabs">
               {['Tour trọn gói','Vé máy bay','Khách sạn','Trải nghiệm'].map((item, i) => <button key={item} className={service === item ? 'active' : ''} onClick={() => setService(item)}>{i===0?<Compass/>:i===1?<Plane/>:i===2?<BedDouble/>:<Ticket/>}<span>{item}</span></button>)}
             </div>
-            <div className="search-grid">
-              <label className="search-field destination"><span>Bạn muốn đi đâu?</span><div><Search size={20}/><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSearch()} placeholder="Nhập tên điểm đến..." /></div></label>
-              <label className="search-field"><span>Phạm vi</span><div><MapPin size={20}/><select value={region} onChange={e=>setRegion(e.target.value)}><option>Tất cả</option><option>Việt Nam</option><option>Quốc tế</option></select></div></label>
-              <label className="search-field"><span>Thời gian</span><div><CalendarDays size={20}/><select value={month} onChange={e=>setMonth(e.target.value)}><option>Bất kỳ</option><option>Tháng 10</option><option>Tháng 11</option><option>Tháng 12</option></select></div></label>
-              <button className="search-submit" onClick={handleSearch}>Tìm chuyến đi <ArrowRight size={18}/></button>
-            </div>
+            <HeroSearch service={service} query={query} setQuery={setQuery} region={region} setRegion={setRegion} month={month} setMonth={setMonth} onSearch={handleSearch} notify={notify}/>
           </div>
           <div className="hero-trust"><span><ShieldCheck/> Giá minh bạch</span><span><Phone/> Tư vấn 24/7</span><span><BadgePercent/> Ưu đãi mỗi ngày</span></div>
           <div className="hero-controls"><button onClick={()=>moveSlide(-1)} aria-label="Banner trước"><ArrowLeft/></button><div>{heroSlides.map((_,index)=><button key={index} className={index===activeSlide?'active':''} onClick={()=>selectSlide(index)} aria-label={`Banner ${index+1}`}><i></i></button>)}</div><button onClick={()=>moveSlide(1)} aria-label="Banner sau"><ArrowRight/></button></div>
@@ -266,13 +264,13 @@ function App() {
       <section className="section container" id="tours">
         <SectionHead eyebrow="Hành trình nổi bật" title="Đang được yêu thích" text="Những chuyến đi được cộng đồng GoTravel lựa chọn nhiều nhất tuần này." />
         <div className="filter-row">{['Tất cả','Trong nước','Châu Á','Châu Âu','Nghỉ dưỡng'].map(x=><button key={x} onClick={()=>applyTourFilter(x)} className={activeFilter===x?'active':''}>{x}</button>)}</div>
-        {visibleTours.length ? <div className="tour-grid">{visibleTours.map(tour => <TourCard key={tour.id} tour={tour} favorite={favorites.includes(tour.id)} onFavorite={()=>toggleFavorite(tour.id)} onDetail={()=>setDetail(tour)} onAdd={()=>addToCart(tour)} />)}</div> : <div className="empty"><Compass size={40}/><h3>Chưa tìm thấy hành trình</h3><p>Thử tìm “Đà Nẵng”, “Nhật Bản” hoặc chọn lại phạm vi.</p><button onClick={()=>{setVisibleTours(tours);setQuery('');setRegion('Tất cả')}}>Xem tất cả tour</button></div>}
+        {visibleTours.length ? <div className="tour-grid">{visibleTours.map(tour => <TourCard key={tour.id} tour={tour} favorite={favorites.includes(tour.id)} onFavorite={()=>toggleFavorite(tour.id)} onDetail={selected=>setDetail(selected)} onAdd={selected=>addToCart(selected)} />)}</div> : <div className="empty"><Compass size={40}/><h3>Chưa tìm thấy hành trình</h3><p>Thử tìm “Đà Nẵng”, “Nhật Bản” hoặc chọn lại phạm vi.</p><button onClick={()=>{setVisibleTours(featuredTours);setQuery('');setRegion('Tất cả')}}>Xem tất cả tour</button></div>}
       </section>
 
       <section className="catalog-section container" id="catalog">
         <SectionHead eyebrow="Tất cả trong một" title="Hệ sinh thái du lịch" text="Đầy đủ các nhóm dịch vụ phổ biến, được sắp xếp lại để tìm nhanh và đặt dễ hơn." />
         <div className="service-grid">{travelServices.map(item => <button className={`service-card ${item.tone}`} key={item.title} onClick={()=>goToPage(serviceToPage[item.title])}><span className="service-icon">{React.createElement(item.icon)}</span><span className="service-main"><b>{item.title}</b><small>{item.desc}</small></span><span className="service-arrow"><ArrowRight/></span><span className="service-links">{item.links.map(link=><i key={link}>{link}</i>)}</span></button>)}</div>
-        <div className="catalog-strip"><div><Waves/><span><b>Du lịch biển đảo</b><small>Phú Quốc · Nha Trang · Quy Nhơn</small></span></div><div><Building2/><span><b>City break</b><small>Singapore · Bangkok · Seoul</small></span></div><div><Users/><span><b>Khách đoàn & MICE</b><small>Thiết kế riêng cho doanh nghiệp</small></span></div><button onClick={()=>notify('Đã gửi yêu cầu tư vấn riêng')}>Nhận tư vấn miễn phí <ArrowRight/></button></div>
+        <div className="catalog-strip"><div><Waves/><span><b>Du lịch biển đảo</b><small>Phú Quốc · Nha Trang · Quy Nhơn</small></span></div><div><Building2/><span><b>City break</b><small>Singapore · Bangkok · Seoul</small></span></div><div><Users/><span><b>Khách đoàn & MICE</b><small>Thiết kế riêng cho doanh nghiệp</small></span></div><button onClick={()=>setConsultOpen(true)}>Nhận tư vấn miễn phí <ArrowRight/></button></div>
       </section>
 
       <section className="dest-section" id="destinations">
@@ -305,34 +303,75 @@ function App() {
       </section>
 
       <section className="newsletter"><div className="container newsletter-inner"><div><span className="eyebrow light"><span></span> Go further</span><h2>Nhận cảm hứng cho chuyến đi tiếp theo.</h2><p>Ưu đãi mới, hành trình hay — gửi vào hộp thư của bạn, không gửi spam.</p></div><form onSubmit={e=>{e.preventDefault();notify('Đăng ký thành công — hẹn gặp bạn ở chuyến đi mới!');e.currentTarget.reset()}}><input type="email" required placeholder="Email của bạn"/><button>Đăng ký <ArrowRight/></button><small>Bằng việc đăng ký, bạn đồng ý với chính sách bảo mật.</small></form></div></section>
-      </> : <SubPage data={pageCatalog[page] || pageCatalog['tour-trong-nuoc']} tours={tours} favorites={favorites} onFavorite={toggleFavorite} onDetail={setDetail} onAdd={addToCart} notify={notify} goHome={()=>goToPage('home')} />}
+      </> : <SubPage data={pageCatalog[page] || pageCatalog['tour-trong-nuoc']} tours={tours} favorites={favorites} onFavorite={toggleFavorite} onDetail={setDetail} onAdd={addToCart} notify={notify} onConsult={()=>setConsultOpen(true)} goHome={()=>goToPage('home')} />}
     </main>
 
     <footer id="about"><div className="container footer-grid"><div className="footer-brand"><a className="logo brand-logo footer-logo" href="#top"><img src="/gotravel-logo.png" alt="GoTravel" /></a><p>Biến mỗi chuyến đi thành một phiên bản mới của chính bạn.</p><div className="socials"><a aria-label="Facebook">f</a><a aria-label="Instagram">◎</a><a aria-label="Youtube">▶</a></div></div><FooterCol title="Khám phá" links={['Tour trong nước','Tour quốc tế','Tour giờ chót','Combo du lịch','Trải nghiệm']} /><FooterCol title="Hỗ trợ" links={['Trung tâm trợ giúp','Chính sách đặt tour','Chính sách hoàn hủy','Bảo hiểm du lịch','Liên hệ']} /><div className="footer-contact"><h4>Liên hệ</h4><a href="tel:+84934105788"><Phone/> <span><small>Hotline 24/7</small>0934 105 788</span></a><a href="https://maps.google.com/?q=82+Nguyễn+Huệ,+Quận+1,+TP.HCM" target="_blank" rel="noreferrer"><MapPin/> 82 Nguyễn Huệ, Quận 1, TP.HCM</a><a href="mailto:info@gotravel.vn"><span className="contact-mail">@</span> info@gotravel.vn</a></div></div><div className="container footer-bottom"><span>© 2026 GoTravel. Thiết kế với cảm hứng xê dịch.</span><span>Điều khoản · Quyền riêng tư · Cookies</span></div></footer>
 
     {cartOpen && <CartDrawer cart={cart} total={total} onClose={()=>setCartOpen(false)} onQty={changeQty} onCheckout={()=>setCheckout(true)} />}
-    {detail && <TourModal tour={detail} onClose={()=>setDetail(null)} onAdd={()=>{addToCart(detail);setDetail(null);setCartOpen(true)}} />}
+    {detail && <TourModal tour={detail} onClose={()=>setDetail(null)} onAdd={selected=>{addToCart(selected);setDetail(null);setCartOpen(true)}} />}
     {loginOpen && <LoginModal onClose={()=>setLoginOpen(false)} notify={notify} />}
     {checkout && <CheckoutModal total={total} onClose={()=>setCheckout(false)} onDone={()=>{setCheckout(false);setCartOpen(false);setCart([]);notify('Yêu cầu đặt tour đã được ghi nhận!')}} />}
+    {consultOpen && <ConsultModal onClose={()=>setConsultOpen(false)} onDone={()=>{setConsultOpen(false);notify('Đã nhận yêu cầu — GoTravel sẽ liên hệ bạn trong 15 phút')}} />}
     {toast && <div className="toast"><Check size={18}/>{toast}</div>}
   </div>
 }
 
-function SubPage({data,tours,favorites,onFavorite,onDetail,onAdd,notify,goHome}) {
+function HeroSearch({service,query,setQuery,region,setRegion,month,setMonth,onSearch,notify}) {
+  const [origin,setOrigin] = useState('TP. Hồ Chí Minh');
+  const [guests,setGuests] = useState('2 khách');
+  const submit = () => service==='Tour trọn gói' ? onSearch() : notify(`Đang tìm ${service.toLowerCase()} phù hợp`);
+  if (service==='Vé máy bay') return <div className="search-grid contextual-search">
+    <label className="search-field"><span>Điểm đi</span><div><Plane/><input value={origin} onChange={e=>setOrigin(e.target.value)} /></div></label>
+    <label className="search-field"><span>Điểm đến</span><div><MapPin/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Bạn muốn bay đến đâu?"/></div></label>
+    <label className="search-field"><span>Ngày khởi hành</span><div><CalendarDays/><input type="date" aria-label="Ngày khởi hành"/></div></label>
+    <button className="search-submit" onClick={submit}>Tìm chuyến bay <ArrowRight/></button>
+  </div>;
+  if (service==='Khách sạn') return <div className="search-grid contextual-search">
+    <label className="search-field destination"><span>Nơi lưu trú</span><div><Building2/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Thành phố, khách sạn..."/></div></label>
+    <label className="search-field"><span>Nhận phòng</span><div><CalendarDays/><input type="date" aria-label="Ngày nhận phòng"/></div></label>
+    <label className="search-field"><span>Khách & phòng</span><div><Users/><select value={guests} onChange={e=>setGuests(e.target.value)}><option>2 khách</option><option>Gia đình 4 khách</option><option>Nhóm 6 khách</option></select></div></label>
+    <button className="search-submit" onClick={submit}>Tìm khách sạn <ArrowRight/></button>
+  </div>;
+  if (service==='Trải nghiệm') return <div className="search-grid contextual-search">
+    <label className="search-field destination"><span>Điểm đến</span><div><Compass/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Bạn muốn trải nghiệm gì?"/></div></label>
+    <label className="search-field"><span>Ngày sử dụng</span><div><CalendarDays/><input type="date" aria-label="Ngày sử dụng"/></div></label>
+    <label className="search-field"><span>Số khách</span><div><Users/><select value={guests} onChange={e=>setGuests(e.target.value)}><option>2 khách</option><option>4 khách</option><option>6+ khách</option></select></div></label>
+    <button className="search-submit" onClick={submit}>Tìm trải nghiệm <ArrowRight/></button>
+  </div>;
+  return <div className="search-grid">
+    <label className="search-field destination"><span>Bạn muốn đi đâu?</span><div><Search/><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&onSearch()} placeholder="Nhập tên điểm đến..."/></div></label>
+    <label className="search-field"><span>Phạm vi</span><div><MapPin/><select value={region} onChange={e=>setRegion(e.target.value)}><option>Tất cả</option><option>Việt Nam</option><option>Quốc tế</option></select></div></label>
+    <label className="search-field"><span>Thời gian</span><div><CalendarDays/><select value={month} onChange={e=>setMonth(e.target.value)}><option>Bất kỳ</option><option>Tháng 10</option><option>Tháng 11</option><option>Tháng 12</option></select></div></label>
+    <button className="search-submit" onClick={onSearch}>Tìm chuyến đi <ArrowRight/></button>
+  </div>;
+}
+
+function SubPage({data,tours,favorites,onFavorite,onDetail,onAdd,notify,onConsult,goHome}) {
   const [activeTab,setActiveTab] = useState(data.tabs[0]);
   const [keyword,setKeyword] = useState('');
   const [sort,setSort] = useState('Phổ biến nhất');
-  useEffect(()=>{setActiveTab(data.tabs[0]);setKeyword('')},[data]);
+  const [departure,setDeparture] = useState('Tất cả');
+  const [transport,setTransport] = useState('Tất cả');
+  const [duration,setDuration] = useState('Mọi thời lượng');
+  const [maxPrice,setMaxPrice] = useState(100);
+  const [dealsOnly,setDealsOnly] = useState(false);
+  useEffect(()=>{setActiveTab(data.tabs[0]);setKeyword('');setDeparture('Tất cả');setTransport('Tất cả');setDuration('Mọi thời lượng');setMaxPrice(100);setDealsOnly(false)},[data]);
   const isTour = ['tour','group','destination'].includes(data.type);
   const pageTours = useMemo(() => {
     let result = data.title.includes('trong nước') ? tours.filter(t=>t.country==='Việt Nam') : data.title.includes('nước ngoài') ? tours.filter(t=>t.country==='Quốc tế') : tours;
     if (data.destinationFilter) result = result.filter(t=>t.destination===data.destinationFilter);
     if (data.destinationFilter && activeTab!=='Tất cả') result = result.filter(t=>t.area===activeTab);
     if (keyword) result = result.filter(t=>`${t.title} ${t.place}`.toLowerCase().includes(keyword.toLowerCase()));
+    if (departure!=='Tất cả') result = result.filter(t=>t.departure===departure);
+    if (transport!=='Tất cả') result = result.filter(t=>getTransport(t)===transport);
+    if (duration!=='Mọi thời lượng') result = result.filter(t=>{const days=parseInt(t.days); return duration==='1 - 3 ngày'?days<=3:duration==='4 - 6 ngày'?days>=4&&days<=6:days>6});
+    result = result.filter(t=>t.price<=maxPrice*1000000);
+    if (dealsOnly) result = result.filter(t=>t.old>t.price);
     if (sort==='Giá thấp nhất') result=[...result].sort((a,b)=>a.price-b.price);
     if (sort==='Đánh giá cao') result=[...result].sort((a,b)=>b.rating-a.rating);
     return result;
-  },[data,activeTab,keyword,sort,tours]);
+  },[data,activeTab,keyword,sort,tours,departure,transport,duration,maxPrice,dealsOnly]);
   const offers = [
     {title:`${data.title} tiêu chuẩn`,meta:'Linh hoạt · Xác nhận nhanh',price:'Từ 990.000đ',image:data.image},
     {title:`${data.title} được yêu thích`,meta:'4.9 ★ · 320 lượt đặt',price:'Từ 1.490.000đ',image:IMG.resort},
@@ -345,20 +384,25 @@ function SubPage({data,tours,favorites,onFavorite,onDetail,onAdd,notify,goHome})
     <section className="sub-hero" style={{backgroundImage:`url(${data.image})`}}><div className="sub-hero-shade"></div><div className="container sub-hero-content"><div className="breadcrumbs"><button onClick={goHome}>Trang chủ</button><ChevronRight/><span>{data.title}</span></div><span className="eyebrow light"><span></span>{data.eyebrow}</span><h1>{data.title}</h1><p>{data.subtitle}</p><div className="sub-search"><Search/><input value={keyword} onChange={e=>setKeyword(e.target.value)} placeholder={`Tìm trong ${data.title.toLowerCase()}...`}/><button onClick={()=>notify(keyword?`Đang tìm “${keyword}”`:'Hãy nhập từ khóa cần tìm')}>Tìm kiếm <ArrowRight/></button></div></div></section>
     <section className="sub-categories"><div className="container">{data.tabs.map(tab=><button key={tab} onClick={()=>setActiveTab(tab)} className={activeTab===tab?'active':''}>{tab}</button>)}</div></section>
     <section className="sub-content container"><div className="sub-toolbar"><div><span className="eyebrow"><span></span>Lựa chọn dành cho bạn</span><h2>{isTour?'Hành trình nổi bật':'Sản phẩm nổi bật'}</h2><p>{isTour?pageTours.length:offers.length} kết quả · {activeTab}</p></div><label>Sắp xếp<select value={sort} onChange={e=>setSort(e.target.value)}><option>Phổ biến nhất</option><option>Giá thấp nhất</option><option>Đánh giá cao</option></select></label></div>
-      <div className="sub-layout"><aside className="sub-filter"><h3>Bộ lọc</h3><label>Điểm khởi hành<select><option>Tất cả</option><option>TP. Hồ Chí Minh</option><option>Hà Nội</option><option>Đà Nẵng</option></select></label><label>Khoảng giá<input type="range" min="0" max="100" defaultValue="65"/></label><div className="price-range"><span>0đ</span><span>100 triệu</span></div><label>Thời lượng<select><option>Mọi thời lượng</option><option>1 - 3 ngày</option><option>4 - 6 ngày</option><option>Trên 7 ngày</option></select></label><label className="check-line"><input type="checkbox"/> Chỉ hiển thị ưu đãi</label><button onClick={()=>notify('Đã áp dụng bộ lọc')}>Áp dụng bộ lọc</button></aside>
-        <div className={isTour?'sub-tour-grid':'offer-grid'}>{isTour ? pageTours.map(tour=><TourCard key={tour.id} tour={tour} favorite={favorites.includes(tour.id)} onFavorite={()=>onFavorite(tour.id)} onDetail={()=>onDetail(tour)} onAdd={()=>onAdd(tour)}/>) : offers.map((offer,index)=><article className="offer-card" key={offer.title}><div><img src={offer.image} alt=""/><span>{index%2?'Đề xuất':'Ưu đãi'}</span></div><section><small>{offer.meta}</small><h3>{offer.title}</h3><div><b>{offer.price}</b><button onClick={()=>notify(`Đã chọn ${offer.title}`)}>Chọn <ArrowRight/></button></div></section></article>)}</div>
+      <div className="sub-layout"><aside className="sub-filter"><div className="filter-head"><h3>Bộ lọc</h3><button className="filter-reset" onClick={()=>{setDeparture('Tất cả');setTransport('Tất cả');setDuration('Mọi thời lượng');setMaxPrice(100);setDealsOnly(false)}}>Đặt lại</button></div><label>Điểm khởi hành<select value={departure} onChange={e=>setDeparture(e.target.value)}><option>Tất cả</option><option>TP. Hồ Chí Minh</option><option>Hà Nội</option><option>Đà Nẵng</option></select></label><label>Phương tiện<select value={transport} onChange={e=>setTransport(e.target.value)}><option>Tất cả</option><option>Máy bay</option><option>Xe du lịch</option></select></label><label>Khoảng giá đến {maxPrice} triệu<input type="range" min="3" max="100" value={maxPrice} onChange={e=>setMaxPrice(Number(e.target.value))}/></label><div className="price-range"><span>3 triệu</span><span>100 triệu</span></div><label>Thời lượng<select value={duration} onChange={e=>setDuration(e.target.value)}><option>Mọi thời lượng</option><option>1 - 3 ngày</option><option>4 - 6 ngày</option><option>Trên 7 ngày</option></select></label><label className="check-line"><input type="checkbox" checked={dealsOnly} onChange={e=>setDealsOnly(e.target.checked)}/> Chỉ hiển thị ưu đãi</label><button onClick={()=>notify(`Đang hiển thị ${pageTours.length} lựa chọn phù hợp`)}>Áp dụng bộ lọc</button></aside>
+        <div className={isTour?'sub-tour-grid':'offer-grid'}>{isTour ? pageTours.map(tour=><TourCard key={tour.id} tour={tour} favorite={favorites.includes(tour.id)} onFavorite={()=>onFavorite(tour.id)} onDetail={selected=>onDetail(selected)} onAdd={selected=>onAdd(selected)}/>) : offers.map((offer,index)=><article className="offer-card" key={offer.title}><div><img src={offer.image} alt=""/><span>{index%2?'Đề xuất':'Ưu đãi'}</span></div><section><small>{offer.meta}</small><h3>{offer.title}</h3><div><b>{offer.price}</b><button onClick={()=>notify(`Đã chọn ${offer.title}`)}>Chọn <ArrowRight/></button></div></section></article>)}</div>
       </div>
     </section>
     <section className="sub-benefits"><div className="container"><SectionHead eyebrow="An tâm lựa chọn" title="GoTravel đồng hành từ đầu đến cuối" text="Thông tin rõ ràng, hỗ trợ thật và trải nghiệm được kiểm chứng."/><div className="benefit-grid">{[[ShieldCheck,'Giá minh bạch','Không phí ẩn, xác nhận trước khi thanh toán'],[Users,'Chuyên viên riêng','Tư vấn theo đúng nhu cầu của bạn'],[Clock3,'Hỗ trợ 24/7','Luôn có người đồng hành khi cần'],[BadgePercent,'Ưu đãi thành viên','Tích điểm cho mọi hành trình']].map(([Icon,title,text])=><div key={title}><span><Icon/></span><h3>{title}</h3><p>{text}</p></div>)}</div></div></section>
     <section className="process-section container"><SectionHead eyebrow="Đặt dịch vụ thật dễ" title="Chỉ 3 bước để bắt đầu" text="Quy trình tinh gọn, phù hợp cả khi bạn chưa có kế hoạch rõ ràng."/><div className="process-grid">{[['01','Tìm & so sánh','Lọc nhanh theo điểm đến, thời gian và ngân sách.'],['02','Chọn phương án','Xem thông tin chi tiết và thêm vào hành trình.'],['03','Xác nhận','Chuyên viên GoTravel liên hệ và hoàn tất đặt chỗ.']].map(([n,t,d])=><div key={n}><b>{n}</b><h3>{t}</h3><p>{d}</p></div>)}</div></section>
     <section className="faq-section"><div className="container faq-grid"><div><span className="eyebrow"><span></span>Hỏi đáp</span><h2>Điều bạn có thể muốn biết</h2><p>Nếu chưa tìm thấy câu trả lời, đội ngũ tư vấn luôn sẵn sàng hỗ trợ.</p></div><div>{['Tôi có thể thay đổi ngày sau khi đặt không?','Giá hiển thị đã bao gồm những gì?','GoTravel hỗ trợ thanh toán bằng cách nào?','Tôi cần chuẩn bị thông tin gì?'].map((q,i)=><details key={q}><summary>{q}<Plus/></summary><p>{i===0?'Có. Chính sách đổi lịch tùy sản phẩm và sẽ được hiển thị rõ trước khi xác nhận.':'Chuyên viên sẽ gửi đầy đủ quyền lợi, điều kiện và chi phí cuối cùng trước khi bạn thanh toán.'}</p></details>)}</div></div></section>
-    <section className="sub-cta"><div className="container"><div><span>Cần một hành trình riêng?</span><h2>Kể chúng tôi nghe chuyến đi bạn đang mơ.</h2></div><button onClick={()=>notify('Đã ghi nhận yêu cầu tư vấn của bạn')}>Nhận tư vấn miễn phí <ArrowRight/></button></div></section>
+    <section className="sub-cta"><div className="container"><div><span>Cần một hành trình riêng?</span><h2>Kể chúng tôi nghe chuyến đi bạn đang mơ.</h2></div><button onClick={onConsult}>Thiết kế tour riêng <ArrowRight/></button></div></section>
   </div>
 }
 
 function SectionHead({eyebrow,title,text,inverse}) { return <div className={`section-head ${inverse?'inverse':''}`}><div><span className="eyebrow"><span></span>{eyebrow}</span><h2>{title}</h2></div><p>{text}</p></div> }
 
-function TourCard({tour,favorite,onFavorite,onDetail,onAdd}) { return <article className="tour-card"><div className="tour-img"><img src={tour.image} alt={tour.title}/><span className="tag">{tour.tag}</span><button className={`heart ${favorite?'active':''}`} onClick={onFavorite} aria-label="Yêu thích"><Heart fill={favorite?'currentColor':'none'}/></button><span className="seats">Chỉ còn {tour.seats} chỗ</span></div><div className="tour-body"><div className="rating"><Star fill="currentColor"/> {tour.rating} <span>({tour.reviews})</span></div><h3 onClick={onDetail}>{tour.title}</h3><div className="tour-meta"><span><MapPin/> Từ {tour.departure}</span><span><Clock3/> {tour.days}</span></div><div className="date-chip"><CalendarDays/> Khởi hành {tour.date}</div><div className="tour-foot"><div><small>Giá từ</small><del>{formatPrice(tour.old)}</del><b>{formatPrice(tour.price)}</b></div><div className="card-actions"><button className="mini-cart" onClick={onAdd}><Plus/></button><button className="detail-btn" onClick={onDetail}>Chi tiết <ArrowRight/></button></div></div></div></article> }
+function TourCard({tour,favorite,onFavorite,onDetail,onAdd}) {
+  const dates=getTourDates(tour);
+  const [selectedDate,setSelectedDate]=useState(tour.date);
+  const selected={...tour,date:selectedDate};
+  return <article className="tour-card"><div className="tour-img"><img src={tour.image} alt={tour.title}/><span className="tag">{tour.tag}</span><button className={`heart ${favorite?'active':''}`} onClick={onFavorite} aria-label="Yêu thích"><Heart fill={favorite?'currentColor':'none'}/></button><span className="seats">Chỉ còn {tour.seats} chỗ</span></div><div className="tour-body"><div className="rating"><Star fill="currentColor"/> {tour.rating} <span>({tour.reviews})</span></div><h3 onClick={()=>onDetail(selected)}>{tour.title}</h3><div className="tour-meta"><span><MapPin/> Từ {tour.departure}</span><span><Clock3/> {tour.days}</span><span><Plane/> {getTransport(tour)}</span></div><div className="tour-date-label"><CalendarDays/> Chọn ngày khởi hành</div><div className="tour-dates">{dates.map(date=><button key={date} className={selectedDate===date?'active':''} onClick={()=>setSelectedDate(date)}>{date}</button>)}</div><div className="tour-foot"><div><small>Giá từ</small><del>{formatPrice(tour.old)}</del><b>{formatPrice(tour.price)}</b></div><div className="card-actions"><button className="mini-cart" onClick={()=>onAdd(selected)} aria-label="Thêm vào giỏ"><Plus/></button><button className="detail-btn" onClick={()=>onDetail(selected)}>Xem nhanh <ArrowRight/></button></div></div></div></article>
+}
 
 function Destination({image,name,meta,tall,wide,onClick}) { return <button onClick={onClick} aria-label={`Khám phá ${name}`} className={`destination-card ${tall?'tall':''} ${wide?'wide':''}`} style={{backgroundImage:`url(${image})`}}><span className="dest-overlay"></span><span className="dest-text"><small>{meta}</small><b>{name}</b></span><span className="dest-arrow"><ArrowRight/></span></button> }
 
@@ -368,9 +412,17 @@ function Overlay({children,onClose,align='center'}) { return <div className={`ov
 
 function CartDrawer({cart,total,onClose,onQty,onCheckout}) { return <Overlay onClose={onClose} align="right"><aside className="cart-drawer"><div className="modal-head"><div><small>Hành trình của bạn</small><h2>Giỏ tour <span>({cart.length})</span></h2></div><button onClick={onClose}><X/></button></div><div className="cart-list">{cart.length===0?<div className="cart-empty"><ShoppingBag/><h3>Giỏ hàng đang trống</h3><p>Thêm một hành trình để bắt đầu chuyến đi nhé.</p></div>:cart.map(item=><div className="cart-item" key={item.id}><img src={item.image}/><div><h4>{item.title}</h4><span>{item.date} · {item.days}</span><b>{formatPrice(item.price)}</b><div className="qty"><button onClick={()=>onQty(item.id,-1)}><Minus/></button><span>{item.qty}</span><button onClick={()=>onQty(item.id,1)}><Plus/></button></div></div></div>)}</div>{cart.length>0&&<div className="cart-total"><div><span>Tạm tính</span><b>{formatPrice(total)}</b></div><small>Giá cuối cùng sẽ được xác nhận bởi tư vấn viên.</small><button onClick={onCheckout}>Tiếp tục đặt tour <ArrowRight/></button></div>}</aside></Overlay> }
 
-function TourModal({tour,onClose,onAdd}) { return <Overlay onClose={onClose}><div className="tour-modal"><button className="modal-x" onClick={onClose}><X/></button><div className="modal-image"><img src={tour.image}/><span>{tour.tag}</span></div><div className="modal-content"><div className="rating"><Star fill="currentColor"/> {tour.rating} · {tour.reviews} đánh giá</div><h2>{tour.title}</h2><div className="modal-highlights"><span><Clock3/> {tour.days}</span><span><MapPin/> {tour.departure}</span><span><CalendarDays/> {tour.date}</span></div><p>Hành trình cân bằng giữa khám phá, trải nghiệm bản địa và thời gian nghỉ ngơi. Bao gồm vé di chuyển, khách sạn tiêu chuẩn, bữa ăn theo lịch trình và hướng dẫn viên.</p><ul><li><Check/> Lịch trình tinh gọn, điểm check-in chọn lọc</li><li><Check/> Đồng hành cùng hướng dẫn viên giàu kinh nghiệm</li><li><Check/> Hỗ trợ đổi lịch linh hoạt trước ngày khởi hành</li></ul><div className="modal-price"><div><small>Trọn gói từ</small><del>{formatPrice(tour.old)}</del><b>{formatPrice(tour.price)} <em>/ khách</em></b></div><button onClick={onAdd}>Chọn hành trình <ArrowRight/></button></div></div></div></Overlay> }
+function TourModal({tour,onClose,onAdd}) {
+  const [tab,setTab]=useState('Tổng quan');
+  const [selectedDate,setSelectedDate]=useState(tour.date);
+  const dates=getTourDates(tour);
+  const itinerary=['Đón khách và bắt đầu hành trình','Khám phá điểm đến biểu tượng','Trải nghiệm văn hóa và ẩm thực địa phương','Tự do mua sắm, nghỉ dưỡng','Kết thúc hành trình và trở về'];
+  return <Overlay onClose={onClose}><div className="tour-modal tour-quickview"><button className="modal-x" onClick={onClose}><X/></button><div className="modal-image"><img src={tour.image} alt={tour.title}/><span>{tour.tag}</span><div className="modal-image-note"><b>{tour.rating} ★</b><small>{tour.reviews} khách đã đánh giá</small></div></div><div className="modal-content"><div className="rating"><Star fill="currentColor"/> Xem nhanh hành trình</div><h2>{tour.title}</h2><div className="modal-highlights"><span><Clock3/> {tour.days}</span><span><MapPin/> Từ {tour.departure}</span><span><Plane/> {getTransport(tour)}</span></div><div className="modal-tabs">{['Tổng quan','Lịch trình','Dịch vụ','Chính sách'].map(x=><button key={x} className={tab===x?'active':''} onClick={()=>setTab(x)}>{x}</button>)}</div><div className="modal-tab-content">{tab==='Tổng quan'&&<><p>Hành trình cân bằng giữa khám phá, trải nghiệm bản địa và thời gian nghỉ ngơi, được GoTravel tuyển chọn cho nhóm nhỏ và gia đình.</p><h4>Chọn ngày khởi hành</h4><div className="modal-dates">{dates.map(date=><button key={date} onClick={()=>setSelectedDate(date)} className={selectedDate===date?'active':''}>{date}<small>{tour.seats} chỗ</small></button>)}</div></>}{tab==='Lịch trình'&&<div className="itinerary-list">{itinerary.slice(0,Math.min(5,parseInt(tour.days))).map((item,index)=><div key={item}><b>Ngày {index+1}</b><span>{item}</span></div>)}</div>}{tab==='Dịch vụ'&&<div className="service-columns"><div><h4>Đã bao gồm</h4>{['Phương tiện theo chương trình','Khách sạn tiêu chuẩn 3–4 sao','Bữa ăn và vé tham quan','Hướng dẫn viên, bảo hiểm'].map(x=><span key={x}><Check/>{x}</span>)}</div><div><h4>Chưa bao gồm</h4>{['Chi phí cá nhân','Phụ thu phòng đơn','Dịch vụ ngoài chương trình'].map(x=><span key={x}><X/>{x}</span>)}</div></div>}{tab==='Chính sách'&&<div className="policy-box"><p><b>Đổi lịch:</b> Miễn phí một lần trước ngày đi 21 ngày.</p><p><b>Trẻ em:</b> Giá được xác nhận theo độ tuổi và dịch vụ sử dụng.</p><p><b>Hoàn hủy:</b> Áp dụng theo thời điểm hủy và điều kiện nhà cung cấp.</p></div>}</div><div className="modal-price"><div><small>Trọn gói ngày {selectedDate}</small><del>{formatPrice(tour.old)}</del><b>{formatPrice(tour.price)} <em>/ khách</em></b></div><button onClick={()=>onAdd({...tour,date:selectedDate})}>Chọn hành trình <ArrowRight/></button></div></div></div></Overlay>
+}
 
 function LoginModal({onClose,notify}) { return <Overlay onClose={onClose}><form className="small-modal" onSubmit={e=>{e.preventDefault();onClose();notify('Đăng nhập bản demo thành công')}}><button className="modal-x" type="button" onClick={onClose}><X/></button><span className="logo-mark"><CircleUserRound/></span><h2>Chào mừng trở lại</h2><p>Lưu hành trình yêu thích và nhận ưu đãi riêng.</p><label>Email<input required type="email" placeholder="ban@email.com"/></label><label>Mật khẩu<input required type="password" placeholder="••••••••"/></label><button className="primary" type="submit">Đăng nhập</button><button className="ghost" type="button" onClick={()=>notify('Tính năng tạo tài khoản đang ở chế độ demo')}>Tạo tài khoản mới</button></form></Overlay> }
+
+function ConsultModal({onClose,onDone}) { return <Overlay onClose={onClose}><form className="small-modal consult-modal" onSubmit={e=>{e.preventDefault();onDone()}}><button className="modal-x" type="button" onClick={onClose}><X/></button><span className="eyebrow"><span></span>Thiết kế hành trình riêng</span><h2>Chuyến đi của bạn, theo cách của bạn.</h2><p>Cho GoTravel vài thông tin, chuyên viên sẽ đề xuất hành trình và ngân sách phù hợp.</p><div className="two-cols"><label>Điểm đến mong muốn<input required placeholder="Ví dụ: Nhật Bản, Phú Quốc..."/></label><label>Ngày dự kiến<input required type="date"/></label></div><div className="two-cols"><label>Số người<select defaultValue="2 người"><option>1 người</option><option>2 người</option><option>Gia đình 3–5 người</option><option>Nhóm trên 6 người</option></select></label><label>Ngân sách/người<select defaultValue="10–20 triệu"><option>Dưới 10 triệu</option><option>10–20 triệu</option><option>20–50 triệu</option><option>Trên 50 triệu</option></select></label></div><div className="two-cols"><label>Họ và tên<input required placeholder="Nguyễn Minh Anh"/></label><label>Số điện thoại<input required type="tel" placeholder="0934 105 788"/></label></div><label>Email<input type="email" placeholder="ban@email.com"/></label><label>Mong muốn đặc biệt<textarea placeholder="Khách sạn, trải nghiệm, trẻ em, chế độ ăn..."></textarea></label><label className="consult-consent"><input required type="checkbox"/> Tôi đồng ý để GoTravel liên hệ tư vấn về hành trình này.</label><button className="primary" type="submit">Gửi yêu cầu thiết kế tour <ArrowRight/></button></form></Overlay> }
 
 function CheckoutModal({total,onClose,onDone}) { return <Overlay onClose={onClose}><form className="small-modal checkout-modal" onSubmit={e=>{e.preventDefault();onDone()}}><button className="modal-x" type="button" onClick={onClose}><X/></button><span className="eyebrow"><span></span> Xác nhận thông tin</span><h2>Gần đến chuyến đi rồi!</h2><p>GoTravel sẽ gọi lại trong 15 phút để xác nhận lịch và phương thức thanh toán.</p><div className="two-cols"><label>Họ và tên<input required placeholder="Nguyễn Minh Anh"/></label><label>Số điện thoại<input required type="tel" placeholder="09xx xxx xxx"/></label></div><label>Email<input required type="email" placeholder="ban@email.com"/></label><label>Ghi chú<textarea placeholder="Yêu cầu đặc biệt, số trẻ em..."></textarea></label><div className="pay-note"><CreditCard/><span><small>Tổng dự kiến</small><b>{formatPrice(total)}</b></span></div><button className="primary" type="submit">Gửi yêu cầu đặt tour</button></form></Overlay> }
 
