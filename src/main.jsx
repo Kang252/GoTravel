@@ -208,7 +208,7 @@ function App() {
   };
 
   return <div className="app">
-    <div className="promo-bar"><span><Sparkles size={15}/> Ưu đãi thành viên mới: giảm đến 500.000đ</span><span className="promo-right">Hotline 24/7: <b>1900 2288</b></span></div>
+    <div className="promo-bar"><span><Sparkles size={15}/> Ưu đãi thành viên mới: giảm đến 500.000đ</span><span className="promo-right">Hotline 24/7: <a href="tel:+84934105788" aria-label="Gọi hotline GoTravel 0934 105 788">0934 105 788</a></span></div>
     <header className="header">
       <div className="container nav-wrap">
         <a className="logo brand-logo" href="/" onClick={e=>{e.preventDefault();goToPage('home')}}><img src="/gotravel-logo.png" alt="GoTravel - Trải nghiệm sự khác biệt" /></a>
@@ -308,7 +308,7 @@ function App() {
       </> : <SubPage data={pageCatalog[page] || pageCatalog['tour-trong-nuoc']} tours={tours} favorites={favorites} onFavorite={toggleFavorite} onDetail={setDetail} onAdd={addToCart} notify={notify} goHome={()=>goToPage('home')} />}
     </main>
 
-    <footer id="about"><div className="container footer-grid"><div className="footer-brand"><a className="logo brand-logo footer-logo" href="#top"><img src="/gotravel-logo.png" alt="GoTravel" /></a><p>Biến mỗi chuyến đi thành một phiên bản mới của chính bạn.</p><div className="socials"><a aria-label="Facebook">f</a><a aria-label="Instagram">◎</a><a aria-label="Youtube">▶</a></div></div><FooterCol title="Khám phá" links={['Tour trong nước','Tour quốc tế','Tour giờ chót','Combo du lịch','Trải nghiệm']} /><FooterCol title="Hỗ trợ" links={['Trung tâm trợ giúp','Chính sách đặt tour','Chính sách hoàn hủy','Bảo hiểm du lịch','Liên hệ']} /><div className="footer-contact"><h4>Liên hệ</h4><a><Phone/> 1900 2288</a><a><MapPin/> 82 Nguyễn Huệ, Quận 1, TP.HCM</a><a>hello@gotravel.vn</a></div></div><div className="container footer-bottom"><span>© 2026 GoTravel. Thiết kế với cảm hứng xê dịch.</span><span>Điều khoản · Quyền riêng tư · Cookies</span></div></footer>
+    <footer id="about"><div className="container footer-grid"><div className="footer-brand"><a className="logo brand-logo footer-logo" href="#top"><img src="/gotravel-logo.png" alt="GoTravel" /></a><p>Biến mỗi chuyến đi thành một phiên bản mới của chính bạn.</p><div className="socials"><a aria-label="Facebook">f</a><a aria-label="Instagram">◎</a><a aria-label="Youtube">▶</a></div></div><FooterCol title="Khám phá" links={['Tour trong nước','Tour quốc tế','Tour giờ chót','Combo du lịch','Trải nghiệm']} /><FooterCol title="Hỗ trợ" links={['Trung tâm trợ giúp','Chính sách đặt tour','Chính sách hoàn hủy','Bảo hiểm du lịch','Liên hệ']} /><div className="footer-contact"><h4>Liên hệ</h4><a href="tel:+84934105788"><Phone/> <span><small>Hotline 24/7</small>0934 105 788</span></a><a href="https://maps.google.com/?q=82+Nguyễn+Huệ,+Quận+1,+TP.HCM" target="_blank" rel="noreferrer"><MapPin/> 82 Nguyễn Huệ, Quận 1, TP.HCM</a><a href="mailto:info@gotravel.vn"><span className="contact-mail">@</span> info@gotravel.vn</a></div></div><div className="container footer-bottom"><span>© 2026 GoTravel. Thiết kế với cảm hứng xê dịch.</span><span>Điều khoản · Quyền riêng tư · Cookies</span></div></footer>
 
     {cartOpen && <CartDrawer cart={cart} total={total} onClose={()=>setCartOpen(false)} onQty={changeQty} onCheckout={()=>setCheckout(true)} />}
     {detail && <TourModal tour={detail} onClose={()=>setDetail(null)} onAdd={()=>{addToCart(detail);setDetail(null);setCartOpen(true)}} />}
